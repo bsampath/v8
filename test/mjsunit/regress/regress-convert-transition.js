@@ -1,4 +1,4 @@
-// Copyright 2011 the V8 project authors. All rights reserved.
+// Copyright 2012 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -25,36 +25,16 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+var input = '{ "a1":1, "a2":1, "a3":1, "a4":1, "a5":1, "a6":1, "a7":1,\
+               "a8":1, "a9":1, "a10":1, "a11":1, "a12":1, "a13":1}';
+var a = JSON.parse(input);
+a.a = function() { return 10; };
 
-#ifndef V8_INSPECTOR_H_
-#define V8_INSPECTOR_H_
+// Force conversion of field to slow mode.
+var b = JSON.parse(input);
+b.a = 10;
 
-// Only build this code if we're configured with the INSPECTOR.
-#ifdef INSPECTOR
-
-#include "v8.h"
-
-#include "objects.h"
-
-namespace v8 {
-namespace internal {
-
-class Inspector {
- public:
-  static void DumpObjectType(FILE* out, Object* obj, bool print_more);
-  static void DumpObjectType(FILE* out, Object* obj) {
-    DumpObjectType(out, obj, false);
-  }
-  static void DumpObjectType(Object* obj, bool print_more) {
-    DumpObjectType(stdout, obj, print_more);
-  }
-  static void DumpObjectType(Object* obj) {
-    DumpObjectType(stdout, obj, false);
-  }
-};
-
-} }  // namespace v8::internal
-
-#endif  // INSPECTOR
-
-#endif  // V8_INSPECTOR_H_
+// Add another property to the object that would transition to a.
+var c = JSON.parse(input);
+c.x = 10;
+assertEquals(undefined, c.a);

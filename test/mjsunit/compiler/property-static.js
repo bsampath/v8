@@ -1,4 +1,4 @@
-// Copyright 2011 the V8 project authors. All rights reserved.
+// Copyright 2013 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -25,39 +25,45 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+// Flags: --allow-natives-syntax
 
-#include "v8.h"
-#include "inspector.h"
+// Test usage of static type information for loads that would otherwise
+// turn into polymorphic or generic loads.
 
+// Prepare a highly polymorphic load to be used by all tests.
+Object.prototype.load = function() { return this.property; };
+Object.prototype.load.call({ A:0, property:10 });
+Object.prototype.load.call({ A:0, B:0, property:11 });
+Object.prototype.load.call({ A:0, B:0, C:0, property:12 });
+Object.prototype.load.call({ A:0, B:0, C:0, D:0, property:13 });
+Object.prototype.load.call({ A:0, B:0, C:0, D:0, E:0, property:14 });
+Object.prototype.load.call({ A:0, B:0, C:0, D:0, E:0, F:0, property:15 });
 
-namespace v8 {
-namespace internal {
-
-#ifdef INSPECTOR
-
-//============================================================================
-// The Inspector.
-
-void Inspector::DumpObjectType(FILE* out, Object* obj, bool print_more) {
-  // Dump the object pointer.
-  OS::FPrint(out, "%p:", reinterpret_cast<void*>(obj));
-  if (obj->IsHeapObject()) {
-    HeapObject* hobj = HeapObject::cast(obj);
-    OS::FPrint(out, " size %d :", hobj->Size());
+// Test for object literals.
+(function() {
+  function f(x) {
+    var object = { property:x };
+    return object.load();
   }
 
-  // Dump each object classification that matches this object.
-#define FOR_EACH_TYPE(type)   \
-  if (obj->Is##type()) {      \
-    OS::FPrint(out, " %s", #type);    \
+  assertSame(1, f(1));
+  assertSame(2, f(2));
+  %OptimizeFunctionOnNextCall(f);
+  assertSame(3, f(3));
+})();
+
+// Test for inlined constructors.
+(function() {
+  function c(x) {
+    this.property = x;
   }
-  OBJECT_TYPE_LIST(FOR_EACH_TYPE)
-  HEAP_OBJECT_TYPE_LIST(FOR_EACH_TYPE)
-#undef FOR_EACH_TYPE
-}
+  function f(x) {
+    var object = new c(x);
+    return object.load();
+  }
 
-
-#endif  // INSPECTOR
-
-} }  // namespace v8::internal
-
+  assertSame(1, f(1));
+  assertSame(2, f(2));
+  %OptimizeFunctionOnNextCall(f);
+  assertSame(3, f(3));
+})();

@@ -119,12 +119,16 @@ class Mutex;
 double ceiling(double x);
 double modulo(double x, double y);
 
-// Custom implementation of sin, cos, tan and log.
+// Custom implementation of math functions.
 double fast_sin(double input);
 double fast_cos(double input);
 double fast_tan(double input);
 double fast_log(double input);
+double fast_exp(double input);
 double fast_sqrt(double input);
+// The custom exp implementation needs 16KB of lookup data; initialize it
+// on demand.
+void lazily_initialize_fast_exp();
 
 // Forward declarations.
 class Socket;
@@ -235,11 +239,16 @@ class OS {
   // Sleep for a number of milliseconds.
   static void Sleep(const int milliseconds);
 
+  static int NumberOfCores();
+
   // Abort the current process.
   static void Abort();
 
   // Debug break.
   static void DebugBreak();
+
+  // Dump C++ current stack trace (only functional on Linux).
+  static void DumpBacktrace();
 
   // Walk the stack.
   static const int kStackWalkError = -1;
@@ -308,6 +317,9 @@ class OS {
   // Returns the double constant NAN
   static double nan_value();
 
+  // Support runtime detection of Cpu implementer
+  static CpuImplementer GetCpuImplementer();
+
   // Support runtime detection of VFP3 on ARM CPUs.
   static bool ArmCpuHasFeature(CpuFeature feature);
 
@@ -336,7 +348,7 @@ class OS {
   static void MemCopy(void* dest, const void* src, size_t size) {
     memcpy(dest, src, size);
   }
-  static const int kMinComplexMemCopy = 256;
+  static const int kMinComplexMemCopy = 16 * kPointerSize;
 #endif  // V8_TARGET_ARCH_IA32
 
   static int GetCurrentProcessId();
@@ -428,6 +440,11 @@ class VirtualMemory {
   // Must be called with a base pointer that has been returned by ReserveRegion
   // and the same size it was reserved with.
   static bool ReleaseRegion(void* base, size_t size);
+
+  // Returns true if OS performs lazy commits, i.e. the memory allocation call
+  // defers actual physical memory allocation till the first memory access.
+  // Otherwise returns false.
+  static bool HasLazyCommits();
 
  private:
   void* address_;  // Start address of the virtual memory.
@@ -740,9 +757,6 @@ class Sampler {
     DoSampleStack(sample);
     IncSamplesTaken();
   }
-
-  // Performs platform-specific stack sampling.
-  void DoSample();
 
   // This method is called for each sampling period with the current
   // program counter.

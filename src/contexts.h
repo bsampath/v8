@@ -103,6 +103,7 @@ enum BindingFlags {
   V(NUMBER_FUNCTION_INDEX, JSFunction, number_function) \
   V(STRING_FUNCTION_INDEX, JSFunction, string_function) \
   V(STRING_FUNCTION_PROTOTYPE_MAP_INDEX, Map, string_function_prototype_map) \
+  V(SYMBOL_FUNCTION_INDEX, JSFunction, symbol_function) \
   V(OBJECT_FUNCTION_INDEX, JSFunction, object_function) \
   V(INTERNAL_ARRAY_FUNCTION_INDEX, JSFunction, internal_array_function) \
   V(ARRAY_FUNCTION_INDEX, JSFunction, array_function) \
@@ -152,7 +153,7 @@ enum BindingFlags {
   V(CONTEXT_EXTENSION_FUNCTION_INDEX, JSFunction, context_extension_function) \
   V(OUT_OF_MEMORY_INDEX, Object, out_of_memory) \
   V(MAP_CACHE_INDEX, Object, map_cache) \
-  V(CONTEXT_DATA_INDEX, Object, data) \
+  V(EMBEDDER_DATA_INDEX, FixedArray, embedder_data) \
   V(ALLOW_CODE_GEN_FROM_STRINGS_INDEX, Object, allow_code_gen_from_strings) \
   V(ERROR_MESSAGE_FOR_CODE_GEN_FROM_STRINGS_INDEX, Object, \
     error_message_for_code_gen_from_strings) \
@@ -161,7 +162,9 @@ enum BindingFlags {
   V(DERIVED_HAS_TRAP_INDEX, JSFunction, derived_has_trap) \
   V(DERIVED_GET_TRAP_INDEX, JSFunction, derived_get_trap) \
   V(DERIVED_SET_TRAP_INDEX, JSFunction, derived_set_trap) \
-  V(PROXY_ENUMERATE, JSFunction, proxy_enumerate) \
+  V(PROXY_ENUMERATE_INDEX, JSFunction, proxy_enumerate) \
+  V(OBSERVERS_NOTIFY_CHANGE_INDEX, JSFunction, observers_notify_change) \
+  V(OBSERVERS_DELIVER_CHANGES_INDEX, JSFunction, observers_deliver_changes) \
   V(RANDOM_SEED_INDEX, ByteArray, random_seed)
 
 // JSFunctions are pairs (context, function code), sometimes also called
@@ -248,6 +251,7 @@ class Context: public FixedArray {
     NUMBER_FUNCTION_INDEX,
     STRING_FUNCTION_INDEX,
     STRING_FUNCTION_PROTOTYPE_MAP_INDEX,
+    SYMBOL_FUNCTION_INDEX,
     OBJECT_FUNCTION_INDEX,
     INTERNAL_ARRAY_FUNCTION_INDEX,
     ARRAY_FUNCTION_INDEX,
@@ -281,14 +285,16 @@ class Context: public FixedArray {
     OPAQUE_REFERENCE_FUNCTION_INDEX,
     CONTEXT_EXTENSION_FUNCTION_INDEX,
     OUT_OF_MEMORY_INDEX,
-    CONTEXT_DATA_INDEX,
+    EMBEDDER_DATA_INDEX,
     ALLOW_CODE_GEN_FROM_STRINGS_INDEX,
     ERROR_MESSAGE_FOR_CODE_GEN_FROM_STRINGS_INDEX,
     TO_COMPLETE_PROPERTY_DESCRIPTOR_INDEX,
     DERIVED_HAS_TRAP_INDEX,
     DERIVED_GET_TRAP_INDEX,
     DERIVED_SET_TRAP_INDEX,
-    PROXY_ENUMERATE,
+    PROXY_ENUMERATE_INDEX,
+    OBSERVERS_NOTIFY_CHANGE_INDEX,
+    OBSERVERS_DELIVER_CHANGES_INDEX,
     RANDOM_SEED_INDEX,
 
     // Properties from here are treated as weak references by the full GC.
@@ -341,12 +347,19 @@ class Context: public FixedArray {
   // The builtins object.
   JSBuiltinsObject* builtins();
 
+  // Get the innermost global context by traversing the context chain.
+  Context* global_context();
+
   // Compute the native context by traversing the context chain.
   Context* native_context();
 
-  // Predicates for context types.  IsNativeContext is defined on Object
+  // Predicates for context types.  IsNativeContext is also defined on Object
   // because we frequently have to know if arbitrary objects are natives
   // contexts.
+  bool IsNativeContext() {
+    Map* map = this->map();
+    return map == map->GetHeap()->native_context_map();
+  }
   bool IsFunctionContext() {
     Map* map = this->map();
     return map == map->GetHeap()->function_context_map();
@@ -446,6 +459,9 @@ class Context: public FixedArray {
   static bool IsBootstrappingOrValidParentContext(Object* object, Context* kid);
   static bool IsBootstrappingOrGlobalObject(Object* object);
 #endif
+
+  STATIC_CHECK(kHeaderSize == Internals::kContextHeaderSize);
+  STATIC_CHECK(EMBEDDER_DATA_INDEX == Internals::kContextEmbedderDataIndex);
 };
 
 } }  // namespace v8::internal
